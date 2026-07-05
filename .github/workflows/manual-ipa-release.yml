@@ -11,19 +11,25 @@ jobs:
     runs-on: macos-26
 
     steps:
-      - name: Checkout master
+      - name: Checkout yj/tank-details-tags
         uses: actions/checkout@v6
+        with:
+          ref: yj/tank-details-tags
 
       - name: Select Xcode version
         run: |
           sudo xcode-select -s /Applications/Xcode_26.6.app
           xcodebuild -version
 
+      - name: Disable macro validation
+        run: defaults write com.apple.dt.Xcode IDESkipMacroFingerprintValidation -bool YES
+
       - name: Resolve app versions
         id: versions
         run: |
           settings="$(
             xcodebuild \
+              -skipMacroValidation \
               -project LANreader.xcodeproj \
               -scheme LANreader \
               -configuration Release \
@@ -61,10 +67,6 @@ jobs:
           git tag "$tag"
           git push origin "$tag"
 
-      - name: Trust Swift macros
-        working-directory: ci_scripts
-        run: zsh ci_post_clone.sh
-
       - name: Build unsigned Release app for Any iOS Device (arm64)
         run: |
           xcodebuild \
@@ -73,6 +75,7 @@ jobs:
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            -skipMacroValidation \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
