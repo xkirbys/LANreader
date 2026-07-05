@@ -21,11 +21,41 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_26.6.app
           xcodebuild -version
 
+      - name: Disable ALL macro validation
+        run: |
+          defaults write com.apple.dt.Xcode IDESkipMacroFingerprintValidation -bool YES
+          defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
+          killall cfprefsd || true
+
+      - name: Pre-trust macros via macros.json
+        run: |
+          mkdir -p ~/Library/org.swift.swiftpm/security
+          cat > ~/Library/org.swift.swiftpm/security/macros.json << 'EOF'
+          {
+            "swift-navigation": {
+              "SwiftNavigationMacros": ""
+            },
+            "swift-case-paths": {
+              "CasePathsMacros": ""
+            },
+            "swift-composable-architecture": {
+              "ComposableArchitectureMacros": ""
+            },
+            "swift-dependencies": {
+              "DependenciesMacros": ""
+            },
+            "swift-perception": {
+              "PerceptionMacros": ""
+            }
+          }
+          EOF
+
       - name: Resolve app versions
         id: versions
         run: |
           settings="$(
             xcodebuild \
+              -skipMacroValidation \
               -project LANreader.xcodeproj \
               -scheme LANreader \
               -configuration Release \
@@ -49,27 +79,21 @@ jobs:
       - name: Create and push tag
         run: |
           tag="${{ steps.versions.outputs.tag }}"
-
           if git show-ref --tags --verify --quiet "refs/tags/$tag"; then
             echo "Tag $tag already exists locally."
             exit 1
           fi
-
           if git ls-remote --tags origin "refs/tags/$tag" | grep -q .; then
             echo "Tag $tag already exists on origin."
             exit 1
           fi
-
           git tag "$tag"
           git push origin "$tag"
 
-      - name: Trust Swift macros
-        working-directory: ci_scripts
-        run: zsh ci_post_clone.sh
-
-      - name: Build unsigned Release app for Any iOS Device (arm64)
+      - name: Build unsigned Release app
         run: |
           xcodebuild \
+            -skipMacroValidation \
             -project LANreader.xcodeproj \
             -scheme LANreader \
             -configuration Release \
@@ -78,7 +102,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            clean build
+            build
 
       - name: Package IPA
         id: package
