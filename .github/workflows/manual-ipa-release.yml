@@ -11,8 +11,10 @@ jobs:
     runs-on: macos-26
 
     steps:
-      - name: Checkout master
+      - name: Checkout yj/tank-details-tags
         uses: actions/checkout@v6
+        with:
+          ref: yj/tank-details-tags
 
       - name: Select Xcode version
         run: |
